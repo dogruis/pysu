@@ -8,7 +8,7 @@ cd "$(dirname "$(readlink -f "$BASH_SOURCE")")"
 set -x
 
 # Build the Docker image for the pysu project
-docker build --pull -t pysu .
+docker build --pull -t pysu -f tests/Dockerfile.test-alpine .
 
 # Remove any previously generated files to start fresh
 rm -f pysu* SHA256SUMS*
