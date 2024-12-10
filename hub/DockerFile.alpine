@@ -1,0 +1,20 @@
+FROM alpine:3.20
+
+# Environment variable for pysu version (update as needed)
+ENV PYSU_VERSION 1.0.0
+
+RUN set -eux; \
+    apk add --no-cache --virtual .fetch-deps python3 py3-pip; \
+    pip install --upgrade pip; \
+    pip install --no-cache-dir pysu==$PYSU_VERSION; \
+    # Verify installation
+    python3 -m pysu --version; \
+    # Create a symbolic link for ease of use
+    ln -s /usr/bin/python3 /usr/local/bin/python; \
+    python --version
+
+# Cleanup unnecessary build dependencies (if any)
+RUN apk del .fetch-deps
+
+# Add entrypoint for using pysu directly
+ENTRYPOINT ["python3", "-m", "pysu"]
