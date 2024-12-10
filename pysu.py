@@ -54,7 +54,7 @@ Usage: {self} user-spec command [args]
        {self} 1000:1 id
 
 {self} version: {version()}
-{self} license: Apache-2.0 (full text at https://github.com/tianon/gosu)
+{self} license: MIT (full text at https://github.com/dogruis/pysu)
 """
 
 def exit_with_message(code, message):
