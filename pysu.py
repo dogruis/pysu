@@ -74,6 +74,7 @@ def setup_user(user_spec):
     except Exception as e:
         raise RuntimeError(f"Failed to retrieve group information: {e}")
 
+    print("Group IDs to set:", group_ids)
     # Change groups
     try:
         os.setgroups(group_ids)
