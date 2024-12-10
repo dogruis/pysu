@@ -31,6 +31,12 @@ pysu license: MIT (full text at https://github.com/dogruis/pysu)
 """
 
 
+def exit_with_error(message):
+    # Utility function to print error messages
+    print(f"error: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
 def validate_binary():
     """Ensure the script is not setuid or setgid."""
     st = os.stat(__file__)
