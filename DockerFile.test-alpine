@@ -1,0 +1,64 @@
+FROM alpine:3.20
+
+# Install Python and dependencies
+RUN apk update && apk add --no-cache \
+    python3 \
+    bash \
+    shadow \
+    file \
+    arch-test \
+    && rm -rf /var/cache/apk/*
+
+# Add "nobody" to ALL groups for testing edge cases
+RUN cut -d: -f1 /etc/group | xargs -rtn1 addgroup nobody
+
+# Copy the pysu script into the container
+WORKDIR /app
+COPY pysu.py .
+
+# Make the pysu script executable
+RUN chmod +x /app/pysu.py
+
+# Create a test script for pysu, similar to `gosu-t`
+RUN set -eux; \
+    echo '#!/bin/sh' > /usr/local/bin/pysu-t; \
+    echo 'set -ex' >> /usr/local/bin/pysu-t; \
+    echo 'spec="$1"; shift' >> /usr/local/bin/pysu-t; \
+    echo 'expec="$1"; shift' >> /usr/local/bin/pysu-t; \
+    echo 'real="$(python3 /app/pysu.py "$spec" id -u):$(python3 /app/pysu.py "$spec" id -g):$(python3 /app/pysu.py "$spec" id -G)"' >> /usr/local/bin/pysu-t; \
+    echo '[ "$expec" = "$real" ]' >> /usr/local/bin/pysu-t; \
+    echo 'expec="$1"; shift' >> /usr/local/bin/pysu-t; \
+    echo 'real="$(python3 /app/pysu.py "$spec" id -un):$(python3 /app/pysu.py "$spec" id -gn):$(python3 /app/pysu.py "$spec" id -Gn)" || true' >> /usr/local/bin/pysu-t; \
+    echo '[ "$expec" = "$real" ]' >> /usr/local/bin/pysu-t; \
+    chmod +x /usr/local/bin/pysu-t
+
+# Add a non-root user for testing
+RUN addgroup -g 1000 testgroup && \
+    adduser -u 1000 -G testgroup -D dogruis
+
+# Set up environment variables and permissions for testing
+ENV HOME=/omg/really/pysu/nowhere
+USER nobody
+
+# Run test cases using pysu-t
+RUN id
+RUN /usr/local/bin/pysu-t 0 "0:0:$(id -G root)" "root:root:$(id -Gn root)"
+RUN /usr/local/bin/pysu-t 0:0 '0:0:0' 'root:root:root'
+RUN /usr/local/bin/pysu-t root "0:0:$(id -G root)" "root:root:$(id -Gn root)"
+RUN /usr/local/bin/pysu-t 0:root '0:0:0' 'root:root:root'
+RUN /usr/local/bin/pysu-t root:0 '0:0:0' 'root:root:root'
+RUN /usr/local/bin/pysu-t root:root '0:0:0' 'root:root:root'
+RUN /usr/local/bin/pysu-t 1000 "1000:$(id -g):$(id -g)" "1000:$(id -gn):$(id -gn)"
+RUN /usr/local/bin/pysu-t 0:1000 '0:1000:1000' 'root:1000:1000'
+RUN /usr/local/bin/pysu-t 1000:1000 '1000:1000:1000' '1000:1000:1000'
+RUN /usr/local/bin/pysu-t root:1000 '0:1000:1000' 'root:1000:1000'
+RUN /usr/local/bin/pysu-t 1000:root '1000:0:0' '1000:root:root'
+RUN /usr/local/bin/pysu-t 1000:daemon "1000:$(id -g daemon):$(id -g daemon)" '1000:daemon:daemon'
+RUN /usr/local/bin/pysu-t games "$(id -u games):$(id -g games):$(id -G games)" 'games:games:games users'
+RUN /usr/local/bin/pysu-t games:daemon "$(id -u games):$(id -g daemon):$(id -g daemon)" 'games:daemon:daemon'
+
+# Make sure we error out properly in unexpected cases
+RUN ! python3 /app/pysu.py bogus true
+RUN ! python3 /app/pysu.py 0day true
+RUN ! python3 /app/pysu.py 0:bogus true
+RUN ! python3 /app/pysu.py 0:0day true
