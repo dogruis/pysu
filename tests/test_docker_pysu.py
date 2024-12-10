@@ -51,3 +51,4 @@ def test_pysu_docker(pysu_binary, dockerfile, expected_process_count):
         # Clean up the Docker container and image after the test
         subprocess.run(["docker", "rm", "-f", container_name], check=True)
         subprocess.run(["docker", "rmi", "-f", image_tag], check=True)
+        
