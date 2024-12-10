@@ -40,6 +40,11 @@ def validate_binary():
         )
 
 
+import os
+import sys
+import pwd
+import grp
+
 def setup_user(user_spec):
     """Switch to the specified user, group, and update groups."""
     if ":" in user_spec:
@@ -64,8 +69,10 @@ def setup_user(user_spec):
 
     # Set the user, group, and additional groups
     try:
-        # Update supplementary groups
-        os.setgroups(pw.pw_gecos.split(',') + [gid])
+        # Update supplementary groups, ensuring the group IDs are integers
+        group_ids = [int(gid) for gid in pw.pw_gecos.split(',')]  # Convert groups to integers
+        group_ids.append(gid)  # Add the primary group ID to the list of groups
+        os.setgroups(group_ids)  # Set the group list to be integers
 
         # Set the primary group and UID
         os.setgid(gid)
