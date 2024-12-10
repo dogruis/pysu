@@ -42,44 +42,59 @@ def validate_binary():
 
 
 def setup_user(user_spec):
-    """Switch to the specified user, group, and update groups."""
-    if ":" in user_spec:
-        user, group = user_spec.split(":")
-    else:
-        user, group = user_spec, None
+    """
+    Changes the groups, gid, and uid for the specified user.
 
-    # Resolve user and group IDs
+    Parameters:
+    - user_spec: str : The user specification (username or UID).
+    """
+
+    # Get the current UID and GID as defaults
+    default_uid = os.getuid()
+    default_gid = os.getgid()
+    default_home = "/"
+
+    # Resolve the user information
     try:
-        pw = pwd.getpwnam(user) if not user.isdigit() else pwd.getpwuid(int(user))
-        uid = pw.pw_uid
+        if user_spec.isdigit():
+            user_info = pwd.getpwuid(int(user_spec))
+        else:
+            user_info = pwd.getpwnam(user_spec)
     except KeyError:
-        sys.exit(f"Error: Invalid user '{user}'")
+        # If user is not found, use the defaults
+        user_info = type('', (), {
+            'pw_uid': default_uid,
+            'pw_gid': default_gid,
+            'pw_dir': default_home
+        })()
 
-    gid = pw.pw_gid
-    if group:
-        try:
-            gr = grp.getgrnam(group) if not group.isdigit() else grp.getgrgid(int(group))
-            gid = gr.gr_gid
-        except KeyError:
-            sys.exit(f"Error: Invalid group '{group}'")
-
-    # Determine supplementary group IDs
+    # Get supplementary group IDs
     try:
-        group_ids = [g.gr_gid for g in grp.getgrall() if user in g.gr_mem or g.gr_gid == gid]
+        group_ids = [g.gr_gid for g in grp.getgrall() if user_info.pw_name in g.gr_mem]
     except Exception as e:
-        sys.exit(f"Error: Failed to retrieve supplementary groups: {e}")
+        raise RuntimeError(f"Failed to retrieve group information: {e}")
 
-    # Set the user, group, and additional groups
+    # Change groups
     try:
-        os.setgroups(group_ids)  # Set supplementary groups
-        os.setgid(gid)           # Set primary group ID
-        os.setuid(uid)           # Set user ID
+        os.setgroups(group_ids)
+    except PermissionError as e:
+        raise RuntimeError(f"Failed to set groups: {e}")
 
-        # Set the HOME environment variable if not already set
-        if not os.getenv("HOME"):
-            os.environ["HOME"] = pw.pw_dir
-    except OSError as e:
-        sys.exit(f"Error: Failed to switch to '{user_spec}': {e}")
+    # Change GID
+    try:
+        os.setgid(user_info.pw_gid)
+    except PermissionError as e:
+        raise RuntimeError(f"Failed to set GID: {e}")
+
+    # Change UID
+    try:
+        os.setuid(user_info.pw_uid)
+    except PermissionError as e:
+        raise RuntimeError(f"Failed to set UID: {e}")
+
+    # Set HOME environment variable if not already set
+    if not os.getenv("HOME"):
+        os.environ["HOME"] = user_info.pw_dir
 
 
 def main():
