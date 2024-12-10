@@ -49,7 +49,7 @@ def usage():
     self = os.path.basename(sys.argv[0])
     return f"""
 Usage: {self} user-spec command [args]
-   eg: {self} tianon bash
+   eg: {self} dogruis bash
        {self} nobody:root bash -c 'whoami && id'
        {self} 1000:1 id
 
