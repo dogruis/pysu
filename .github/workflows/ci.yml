@@ -31,6 +31,14 @@ jobs:
           pip install poetry
           poetry install
 
+      - name: Build pysu Docker image
+        run: |
+          chmod +x build.sh
+          ./build.sh  # Run the build script
+
+      - name: List files in tests folder
+        run: ls -l tests/
+
       - name: Run Python tests
         run: |
           poetry run pytest tests/ --maxfail=1 --disable-warnings -q
