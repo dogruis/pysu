@@ -17,22 +17,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # Install dependencies for cross-platform support
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends binfmt-support qemu-user-static
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-      # Run build and test scripts (assuming these scripts are in your repository)
-      - run: ./build.sh
-      - run: ./test.sh gosu-amd64
-      - run: ./test.sh gosu-i386
-      - run: ./test.sh --debian gosu-amd64
-      - run: ./test.sh --debian gosu-i386
-
-      # Run govulncheck to check for known vulnerabilities in the binaries
-      - name: govulncheck
+      - name: Install dependencies
         run: |
-          for gosu in gosu-*; do
-            ./govulncheck-with-excludes.sh -mode=binary "$gosu"
-          done
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install
+
+      - name: Run Python tests
+        run: |
+          pytest tests/ --maxfail=1 --disable-warnings -q
