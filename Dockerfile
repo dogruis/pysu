@@ -1,8 +1,6 @@
 # Use Python 3.12 Alpine image as the base
 FROM python:3.12-alpine
 
-RUN cut -d: -f1 /etc/group | xargs -rtn1 addgroup nobody
-
 # Install necessary dependencies
 RUN apk update && apk add --no-cache \
     bash \
@@ -22,10 +20,9 @@ COPY pysu.py .
 # Make the pysu script executable
 RUN chmod +x /app/pysu.py
 
-# adjust users so we can make sure the tests are interesting
-RUN chgrp nobody /app \
-	&& chmod +s /app
- 
+# Add a non-root user for testing (we will use the 'dogruis' user in this example)
+RUN addgroup -g 1000 testgroup && \
+    adduser -u 1000 -G testgroup -D dogruis
 # Build and test the Python script
 RUN set -eux; \
     echo '#!/usr/bin/env bash'; \
