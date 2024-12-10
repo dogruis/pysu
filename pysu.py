@@ -63,22 +63,21 @@ def setup_user(user_spec):
         except KeyError:
             sys.exit(f"Error: Invalid group '{group}'")
 
+    # Determine supplementary group IDs
+    try:
+        group_ids = [g.gr_gid for g in grp.getgrall() if user in g.gr_mem or g.gr_gid == gid]
+    except Exception as e:
+        sys.exit(f"Error: Failed to retrieve supplementary groups: {e}")
+
     # Set the user, group, and additional groups
     try:
-        # Get supplementary groups from pw.pw_groups (list of groups the user belongs to)
-        group_ids = [gr.gr_gid for gr in grp.getgrall() if pw.pw_name in gr.gr_mem]  # Convert groups to integers
-        group_ids.append(gid)  # Add the primary group ID to the list of groups
-        os.setgroups(group_ids)  # Set the group list to be integers
+        os.setgroups(group_ids)  # Set supplementary groups
+        os.setgid(gid)           # Set primary group ID
+        os.setuid(uid)           # Set user ID
 
-        # Check if running as root to perform setuid/setgid
-        if os.geteuid() == 0:
-            os.setgid(gid)
-            os.setuid(uid)
-
-        # Set the HOME environment variable if not set
+        # Set the HOME environment variable if not already set
         if not os.getenv("HOME"):
             os.environ["HOME"] = pw.pw_dir
-
     except OSError as e:
         sys.exit(f"Error: Failed to switch to '{user_spec}': {e}")
 
