@@ -6,7 +6,6 @@ RUN apk update && apk add --no-cache \
     bash \
     shadow \
     file \
-    arch-test \
     libc6-compat \
     && rm -rf /var/cache/apk/*
 
