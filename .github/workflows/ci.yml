@@ -33,4 +33,5 @@ jobs:
 
       - name: Run Python tests
         run: |
-          pytest tests/ --maxfail=1 --disable-warnings -q
+          poetry run pytest tests/ --maxfail=1 --disable-warnings -q
+
