@@ -1,5 +1,6 @@
 [tool.poetry]
 name = "pysu"
+version = "0.0.0"
 description = "A tool for managing user switching and process execution in Docker image at startup"
 authors = ["dogruis <is.dogru@gmail.com>"]
 license = "MIT"
