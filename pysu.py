@@ -2,9 +2,9 @@ import pwd
 import sys
 import os
 import subprocess
-import runtime
+import platform
 
-VERSION = "1.0.0"  # Define the version of the script
+VERSION = "1.0.0"
 
 def get_user_info(user_spec):
     """
@@ -36,10 +36,11 @@ def run_command(command):
         sys.exit(1)
 
 def version():
-    """
-    Returns the version of the script.
-    """
-    return f"pysu version {VERSION} (Python {sys.version_info[0]}.{sys.version_info[1]})"
+    """Return version information including Python, OS, and system architecture."""
+    python_version = sys.version.split()[0]
+    os_name = os.name
+    system_architecture = platform.machine()
+    return f"pysu version {VERSION}, Python {python_version}, OS {os_name}, Architecture {system_architecture}"
 
 def usage():
     """
