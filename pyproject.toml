@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "pysu"
+description = "A tool for managing user switching and process execution in Docker image at startup"
+authors = ["dogruis <is.dogru@gmail.com>"]
+license = "MIT"
+homepage = "https://github.com/dogruis/pysu"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pytest = "^8.3"
+
+[tool.poetry.dev-dependencies]
+pytest-cov = "^6.0"
+
+[build-system]
+requires = ["poetry-core>=1.9.1"]
+build-backend = "poetry.core.masonry.api"
