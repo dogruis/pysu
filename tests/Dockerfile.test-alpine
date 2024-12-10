@@ -6,7 +6,6 @@ RUN apk update && apk add --no-cache \
     bash \
     shadow \
     file \
-    arch-test \
     && rm -rf /var/cache/apk/*
 
 # Add "nobody" to ALL groups for testing edge cases
