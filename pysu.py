@@ -48,7 +48,9 @@ def setup_user(user_spec):
     Parameters:
     - user_spec: str : The user specification (username or UID).
     """
-
+    
+    print(f"Setting up user: {user_spec}")
+    
     # Get the current UID and GID as defaults
     default_uid = os.getuid()
     default_gid = os.getgid()
@@ -74,7 +76,7 @@ def setup_user(user_spec):
     except Exception as e:
         raise RuntimeError(f"Failed to retrieve group information: {e}")
 
-    print("Group IDs to set:", group_ids)
+    print(f"Group IDs to set: {group_ids}")
     # Change groups
     try:
         os.setgroups(group_ids)
