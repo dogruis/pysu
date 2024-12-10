@@ -1,0 +1,62 @@
+FROM debian:bookworm-slim
+
+# Install Python3 and other utilities
+RUN apt-get update && apt-get install -y python3 bash file && apt-get clean
+
+# add "nobody" to ALL groups (makes testing edge cases more interesting)
+RUN cut -d: -f1 /etc/group | xargs -rtI'{}' usermod -aG '{}' nobody
+# emulate Alpine's "games" user (which is part of the "users" group)
+RUN usermod -aG users games
+
+# Copy the pysu script
+WORKDIR /app
+COPY pysu.py .
+
+# Make the pysu script executable
+RUN chmod +x /app/pysu.py
+
+# Create a test script for pysu
+RUN { \
+        echo '#!/bin/sh'; \
+        echo 'set -ex'; \
+        echo; \
+        echo 'spec="$1"; shift'; \
+        echo; \
+        echo 'expec="$1"; shift'; \
+        echo 'real="$(python3 /app/pysu.py "$spec" id -u):$(python3 /app/pysu.py "$spec" id -g):$(python3 /app/pysu.py "$spec" id -G)"'; \
+        echo '[ "$expec" = "$real" ]'; \
+        echo; \
+        echo 'expec="$1"; shift'; \
+        echo 'real="$(python3 /app/pysu.py "$spec" id -un):$(python3 /app/pysu.py "$spec" id -gn):$(python3 /app/pysu.py "$spec" id -Gn)" || true'; \
+        echo '[ "$expec" = "$real" ]'; \
+    } > /usr/local/bin/pysu-t \
+    && chmod +x /usr/local/bin/pysu-t
+
+# Set environment variables and user
+ENV HOME=/omg/really/pysu/nowhere
+USER nobody
+
+# Run basic ID checks
+RUN id
+
+# Test cases using pysu-t
+RUN /usr/local/bin/pysu-t 0 "0:0:$(id -G root)" "root:root:$(id -Gn root)"
+RUN /usr/local/bin/pysu-t 0:0 '0:0:0' 'root:root:root'
+RUN /usr/local/bin/pysu-t root "0:0:$(id -G root)" "root:root:$(id -Gn root)"
+RUN /usr/local/bin/pysu-t 0:root '0:0:0' 'root:root:root'
+RUN /usr/local/bin/pysu-t root:0 '0:0:0' 'root:root:root'
+RUN /usr/local/bin/pysu-t root:root '0:0:0' 'root:root:root'
+RUN /usr/local/bin/pysu-t 1000 "1000:$(id -g):$(id -g)" "1000:$(id -gn):$(id -gn)"
+RUN /usr/local/bin/pysu-t 0:1000 '0:1000:1000' 'root:1000:1000'
+RUN /usr/local/bin/pysu-t 1000:1000 '1000:1000:1000' '1000:1000:1000'
+RUN /usr/local/bin/pysu-t root:1000 '0:1000:1000' 'root:1000:1000'
+RUN /usr/local/bin/pysu-t 1000:root '1000:0:0' '1000:root:root'
+RUN /usr/local/bin/pysu-t 1000:daemon "1000:$(id -g daemon):$(id -g daemon)" '1000:daemon:daemon'
+RUN /usr/local/bin/pysu-t games "$(id -u games):$(id -g games):$(id -G games)" 'games:games:games users'
+RUN /usr/local/bin/pysu-t games:daemon "$(id -u games):$(id -g daemon):$(id -g daemon)" 'games:daemon:daemon'
+
+# Negative test cases
+RUN ! python3 /app/pysu.py bogus true
+RUN ! python3 /app/pysu.py 0day true
+RUN ! python3 /app/pysu.py 0:bogus true
+RUN ! python3 /app/pysu.py 0:0day true
