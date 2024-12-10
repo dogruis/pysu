@@ -21,10 +21,10 @@ def version():
 def usage():
     """Return usage information."""
     return f"""
-Usage: pysu.py user-spec command [args]
-   eg: pysu.py dogruis bash
-       pysu.py nobody:root bash -c 'whoami && id'
-       pysu.py 1000:1 id
+Usage: {sys.argv[0]} user-spec command [args]
+   eg: {sys.argv[0]} dogruis bash
+       {sys.argv[0]} nobody:root bash -c 'whoami && id'
+       {sys.argv[0]} 1000:1 id
 
 pysu version: {version()}
 pysu license: MIT (full text at https://github.com/dogruis/pysu)
@@ -42,84 +42,70 @@ def validate_binary():
 
 
 def setup_user(user_spec):
-    """
-    Changes the groups, gid, and uid for the specified user.
-
-    Parameters:
-    - user_spec: str : The user specification (username or UID).
-    """
-    
-    print(f"Setting up user: {user_spec}")
-    
-    # Get the current UID and GID as defaults
-    default_uid = os.getuid()
-    default_gid = os.getgid()
-    default_home = "/"
-
-    # Resolve the user information
     try:
-        if user_spec.isdigit():
-            user_info = pwd.getpwuid(int(user_spec))
+        if ":" in user_spec:
+            user, group = user_spec.split(":")
         else:
-            user_info = pwd.getpwnam(user_spec)
-    except KeyError:
-        # If user is not found, use the defaults
-        user_info = type('', (), {
-            'pw_uid': default_uid,
-            'pw_gid': default_gid,
-            'pw_dir': default_home
-        })()
+            user = user_spec
+            group = None
+        
+        # Lookup the user
+        user_info = pwd.getpwnam(user)
+        uid = user_info.pw_uid
+        gid = user_info.pw_gid
 
-    # Get supplementary group IDs
-    try:
-        group_ids = [g.gr_gid for g in grp.getgrall() if user_info.pw_name in g.gr_mem]
-    except Exception as e:
-        raise RuntimeError(f"Failed to retrieve group information: {e}")
+        # Lookup the group if necessary
+        if group:
+            try:
+                group_info = grp.getgrnam(group)
+                gid = group_info.gr_gid
+            except KeyError:
+                exit_with_error(f"Group '{group}' not found")
 
-    print(f"Group IDs to set: {group_ids}")
-    # Change groups
-    try:
-        os.setgroups(group_ids)
-    except PermissionError as e:
-        raise RuntimeError(f"Failed to set groups: {e}")
+        # Set user and group IDs
+        os.setgid(gid)
+        os.setuid(uid)
+        
+        # Set the HOME environment variable
+        if 'HOME' not in os.environ:
+            os.environ['HOME'] = user_info.pw_dir
 
-    # Change GID
-    try:
-        os.setgid(user_info.pw_gid)
-    except PermissionError as e:
-        raise RuntimeError(f"Failed to set GID: {e}")
-
-    # Change UID
-    try:
-        os.setuid(user_info.pw_uid)
-    except PermissionError as e:
-        raise RuntimeError(f"Failed to set UID: {e}")
-
-    # Set HOME environment variable if not already set
-    if not os.getenv("HOME"):
-        os.environ["HOME"] = user_info.pw_dir
+    except KeyError as e:
+        exit_with_error(f"User '{user}' not found")
+    except OSError as e:
+        exit_with_error(f"Failed to set user: {e}")
 
 
 def main():
-    validate_binary()
-
-    # Parse arguments
     if len(sys.argv) < 3:
-        sys.exit(usage())
+        print(usage())
+        sys.exit(1)
+
+    # Handle help and version flags
+    if sys.argv[1] in ['--help', '-h', '-?']:
+        print(usage())
+        sys.exit(0)
+
+    if sys.argv[1] in ['--version', '-v']:
+        print(version())
+        sys.exit(0)
 
     user_spec = sys.argv[1]
     command = sys.argv[2:]
 
+    # Setup user (switch to the requested user)
     setup_user(user_spec)
 
-    # Execute the given command
+    # Execute the given command as the new user
     try:
-        subprocess.run(command)
+        # Use execvp to run the command, passing the arguments
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as e:
+        exit_with_error(f"Command failed: {e}")
     except FileNotFoundError:
-        sys.exit(f"Error: Command not found: {command[0]}")
+        exit_with_error(f"Command '{command[0]}' not found")
     except Exception as e:
-        sys.exit(f"Error: Failed to execute '{command[0]}': {e}")
-
+        exit_with_error(f"Error executing command: {e}")
 
 if __name__ == "__main__":
     main()
