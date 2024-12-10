@@ -1,93 +1,75 @@
-#!/usr/bin/env python3
-
-import os
-import sys
-import stat
 import pwd
-import grp
+import sys
+import os
 import subprocess
 import platform
 
+VERSION = "1.0.0"
+
+def get_user_info(user_spec):
+    """
+    Get user information from user specifier. Accepts both user names
+    and numeric user IDs (UIDs).
+    """
+    try:
+        if user_spec.isdigit():
+            # If user_spec is numeric (UID), look up by UID
+            uid = int(user_spec)
+            user_info = pwd.getpwuid(uid)
+        else:
+            # Otherwise, look up by username
+            user_info = pwd.getpwnam(user_spec)
+        return user_info
+    except KeyError:
+        print(f"User '{user_spec}' not found")
+        sys.exit(1)
+
+def run_command(command):
+    """
+    Run a command with subprocess and return the output.
+    """
+    try:
+        result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return result.stdout.decode(), result.stderr.decode()
+    except subprocess.CalledProcessError as e:
+        print(f"Error running command: {e}")
+        sys.exit(1)
 
 def version():
     """Return version information including Python, OS, and system architecture."""
     python_version = sys.version.split()[0]
     os_name = os.name
     system_architecture = platform.machine()
-
-    return f"Python {python_version} on {os_name} ({system_architecture})"
-
+    return f"pysu version {VERSION}, Python {python_version}, OS {os_name}, Architecture {system_architecture}"
 
 def usage():
-    """Return usage information."""
+    """
+    Returns the usage string for the script.
+    """
+    self = os.path.basename(sys.argv[0])
     return f"""
-Usage: {sys.argv[0]} user-spec command [args]
-   eg: {sys.argv[0]} dogruis bash
-       {sys.argv[0]} nobody:root bash -c 'whoami && id'
-       {sys.argv[0]} 1000:1 id
+Usage: {self} user-spec command [args]
+   eg: {self} dogruis bash
+       {self} nobody:root bash -c 'whoami && id'
+       {self} 1000:1 id
 
-pysu version: {version()}
-pysu license: MIT (full text at https://github.com/dogruis/pysu)
+{self} version: {version()}
+{self} license: MIT (full text at https://github.com/dogruis/pysu)
 """
 
-
-def exit_with_error(message):
-    # Utility function to print error messages
-    print(f"error: {message}", file=sys.stderr)
-    sys.exit(1)
-
-
-def validate_binary():
-    """Ensure the script is not setuid or setgid."""
-    st = os.stat(__file__)
-    if st.st_mode & (stat.S_ISUID | stat.S_ISGID):
-        sys.exit(
-            f"Error: {sys.argv[0]} appears to be installed with the 'setuid' or 'setgid' bit set, "
-            "which is insecure and unsupported. Use 'sudo' or 'su' instead."
-        )
-
-
-def setup_user(user_spec):
-    try:
-        if ":" in user_spec:
-            user, group = user_spec.split(":")
-        else:
-            user = user_spec
-            group = None
-        
-        # Lookup the user
-        user_info = pwd.getpwnam(user)
-        uid = user_info.pw_uid
-        gid = user_info.pw_gid
-
-        # Lookup the group if necessary
-        if group:
-            try:
-                group_info = grp.getgrnam(group)
-                gid = group_info.gr_gid
-            except KeyError:
-                exit_with_error(f"Group '{group}' not found")
-
-        # Set user and group IDs
-        os.setgid(gid)
-        os.setuid(uid)
-        
-        # Set the HOME environment variable
-        if 'HOME' not in os.environ:
-            os.environ['HOME'] = user_info.pw_dir
-
-    except KeyError as e:
-        exit_with_error(f"User '{user}' not found")
-    except OSError as e:
-        exit_with_error(f"Failed to set user: {e}")
-
+def exit_with_message(code, message):
+    """
+    Print the message to stderr and exit with the given exit code.
+    """
+    sys.stderr.write(message + '\n')
+    sys.exit(code)
 
 def main():
-    if len(sys.argv) < 3:
+    # Check for --help, -h, --version, -v flags
+    if len(sys.argv) < 2:
         print(usage())
         sys.exit(1)
 
-    # Handle help and version flags
     if sys.argv[1] in ['--help', '-h', '-?']:
         print(usage())
         sys.exit(0)
@@ -96,22 +78,35 @@ def main():
         print(version())
         sys.exit(0)
 
+    # Get the user specifier (e.g., "0" or "root")
     user_spec = sys.argv[1]
-    command = sys.argv[2:]
+    
+    # Fetch user information (either by username or UID)
+    user_info = get_user_info(user_spec)
+    user_name = user_info.pw_name
+    user_uid = user_info.pw_uid
+    user_gid = user_info.pw_gid
+    user_home = user_info.pw_dir
 
-    # Setup user (switch to the requested user)
-    setup_user(user_spec)
+    print(f"User Info: {user_name} (UID: {user_uid}, GID: {user_gid}, Home: {user_home})")
+    
+    # Set environment variables as needed
+    os.setgid(user_gid)
+    os.setuid(user_uid)
+    os.environ['HOME'] = user_home
 
-    # Execute the given command as the new user
-    try:
-        # Use execvp to run the command, passing the arguments
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as e:
-        exit_with_error(f"Command failed: {e}")
-    except FileNotFoundError:
-        exit_with_error(f"Command '{command[0]}' not found")
-    except Exception as e:
-        exit_with_error(f"Error executing command: {e}")
+    # After switching user, execute the command passed as argument
+    command = sys.argv[2:]  # All arguments after the user specifier are the command to execute
+    if not command:
+        print("No command provided to execute.")
+        sys.exit(1)
+
+    # Execute the user command with the updated UID/GID
+    stdout, stderr = run_command(command)
+    if stdout:
+        print(f"Output: {stdout}")
+    if stderr:
+        print(f"Error: {stderr}")
 
 if __name__ == "__main__":
     main()
