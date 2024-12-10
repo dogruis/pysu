@@ -8,6 +8,7 @@ import grp
 import subprocess
 import platform
 
+
 def version():
     """Return version information including Python, OS, and system architecture."""
     python_version = sys.version.split()[0]
@@ -40,16 +41,6 @@ def validate_binary():
         )
 
 
-import os
-import sys
-import pwd
-import grp
-
-import os
-import sys
-import pwd
-import grp
-
 def setup_user(user_spec):
     """Switch to the specified user, group, and update groups."""
     if ":" in user_spec:
@@ -79,9 +70,10 @@ def setup_user(user_spec):
         group_ids.append(gid)  # Add the primary group ID to the list of groups
         os.setgroups(group_ids)  # Set the group list to be integers
 
-        # Set the primary group and UID
-        os.setgid(gid)
-        os.setuid(uid)
+        # Check if running as root to perform setuid/setgid
+        if os.geteuid() == 0:
+            os.setgid(gid)
+            os.setuid(uid)
 
         # Set the HOME environment variable if not set
         if not os.getenv("HOME"):
