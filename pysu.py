@@ -45,6 +45,11 @@ import sys
 import pwd
 import grp
 
+import os
+import sys
+import pwd
+import grp
+
 def setup_user(user_spec):
     """Switch to the specified user, group, and update groups."""
     if ":" in user_spec:
@@ -69,8 +74,8 @@ def setup_user(user_spec):
 
     # Set the user, group, and additional groups
     try:
-        # Update supplementary groups, ensuring the group IDs are integers
-        group_ids = [int(gid) for gid in pw.pw_gecos.split(',')]  # Convert groups to integers
+        # Get supplementary groups from pw.pw_groups (list of groups the user belongs to)
+        group_ids = [gr.gr_gid for gr in grp.getgrall() if pw.pw_name in gr.gr_mem]  # Convert groups to integers
         group_ids.append(gid)  # Add the primary group ID to the list of groups
         os.setgroups(group_ids)  # Set the group list to be integers
 
