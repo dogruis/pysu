@@ -26,7 +26,7 @@ RUN set -eux; \
     echo 'set -ex' >> /usr/local/bin/pysu-t; \
     echo 'spec="$1"; shift' >> /usr/local/bin/pysu-t; \
     echo 'expec="$1"; shift' >> /usr/local/bin/pysu-t; \
-    echo 'real="$(python3 /app/pysu.py "$spec" id -u):$(python3 pysu.py "$spec" id -g):$(python3 pysu.py "$spec" id -G)"' >> /usr/local/bin/pysu-t; \
+    echo 'real="$(python3 pysu.py "$spec" id -u):$(python3 pysu.py "$spec" id -g):$(python3 pysu.py "$spec" id -G)"' >> /usr/local/bin/pysu-t; \
     echo '[ "$expec" = "$real" ]' >> /usr/local/bin/pysu-t; \
     echo 'expec="$1"; shift' >> /usr/local/bin/pysu-t; \
     echo 'real="$(python3 pysu.py "$spec" id -un):$(python3 pysu.py "$spec" id -gn):$(python3 pysu.py "$spec" id -Gn)" || true' >> /usr/local/bin/pysu-t; \
